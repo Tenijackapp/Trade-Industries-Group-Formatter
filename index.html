@@ -84,8 +84,10 @@ select:hover,textarea:hover{border-color:var(--steel)}
 .phasebar.show{display:flex}
 .phasebar b{color:var(--warn)}
 
-.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
 .spacer{flex:1}
+.rowfilter{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--steel);cursor:pointer;user-select:none;margin-left:6px}
+.rowfilter input{cursor:pointer;width:auto}
 .tbl-scroll{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:8px}
 table{border-collapse:collapse;font-family:var(--mono);font-size:12.5px;min-width:100%}
 th{font-family:var(--display);font-size:12px;letter-spacing:.5px;text-transform:uppercase;background:var(--ink);color:#fff;padding:8px 11px;text-align:left;position:sticky;top:0;z-index:2;white-space:nowrap}
@@ -152,6 +154,7 @@ td .was{display:block;color:var(--steel);font-size:10.5px;text-decoration:line-t
     </div>
     <div class="toolbar">
       <span class="pill" id="tplpill">No schedule detected</span>
+      <label class="rowfilter" id="rowfilterwrap" style="display:none"><input type="checkbox" id="rowfilter"><span id="rowfilterlbl"> Show only rows to review/fix</span></label>
       <span class="spacer"></span>
       <button class="btn btn-small" id="xlsx" disabled>Download Excel</button>
     </div>
@@ -473,14 +476,28 @@ function render(){
   const pb=$("phasebar");
   if(blanks>0){pb.classList.add("show");$("phasecount").textContent=blanks;}else pb.classList.remove("show");
 
+  // which rows need attention? (a review or error flag — auto-fixes don't count)
+  const flaggedRow=ri=>{ for(let ci=0;ci<COLS.length;ci++){const f=flags[ri+"_"+ci];if(f==="review"||f==="error")return true;} return false; };
+  const flaggedCount=(()=>{let n=0;for(let ri=0;ri<rows.length;ri++)if(flaggedRow(ri))n++;return n;})();
+  const filterEl=$("rowfilter");
+  const filterOn=filterEl?filterEl.checked:false;
+  // show/hide the toggle depending on whether anything needs review
+  const fw=$("rowfilterwrap");
+  if(fw){
+    fw.style.display=(rows.length&&flaggedCount>0)?"inline-flex":"none";
+    const lbl=$("rowfilterlbl"); if(lbl) lbl.textContent=" Show only rows to review/fix ("+flaggedCount+")";
+  }
+
   // table
   const wrap=$("tblwrap");
   if(!rows.length){ wrap.innerHTML='<div class="empty"><b>Nothing checked yet</b>Open a schedule PDF or Excel above, or paste rows, then hit Check &amp; Format.<br>Cells are editable — fix any red or amber cell and the highlight clears.</div>'; }
+  else if(filterOn&&flaggedCount===0){ wrap.innerHTML='<div class="empty"><b>Nothing to review</b>No rows need review or fixing. Untick the filter to see all '+rows.length+' rows.</div>'; }
   else{
     let h='<div class="tbl-scroll"><table><thead><tr><th></th>';
     COLS.forEach(cn=>h+='<th class="'+(REQUIRED.includes(cn)?'req':'')+'">'+esc(cn)+'</th>');
     h+='</tr></thead><tbody>';
     rows.forEach((r,ri)=>{
+      if(filterOn&&!flaggedRow(ri)) return;   // hide clean rows when filtering
       h+='<tr><td class="rownum">'+(ri+1)+'</td>';
       r.forEach((cell,ci)=>{
         const f=flags[ri+"_"+ci], was=origin[ri+"_"+ci];
@@ -508,6 +525,7 @@ function render(){
 /* ---------- actions ---------- */
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800);}
 $("run").addEventListener("click",runCheck);
+{const rf=$("rowfilter"); if(rf) rf.addEventListener("change",()=>{ if(STATE.rows.length) render(); });}
 $("fillphase").addEventListener("click",()=>{let n=0;STATE.rows.forEach((r,ri)=>{if(!String(r[1]).trim()){r[1]="Unspecified";STATE.flags[ri+"_1"]="fixed";n++;}});render();toast(n+' phase(s) filled with "Unspecified"');});
 $("reset").addEventListener("click",()=>{
   $("src").value="";const fi=$("file");if(fi)fi.value="";UPLOADED_NAME="";
@@ -516,6 +534,7 @@ $("reset").addEventListener("click",()=>{
   $("checks").innerHTML='<div class="footnote">Run a check to see results here. Fixed = corrected automatically. Review = look at it yourself. Error = must be resolved before import.</div>';
   $("tblwrap").innerHTML='<div class="empty"><b>Nothing checked yet</b>Open a schedule PDF or Excel above, or paste rows, then hit Check &amp; Format.</div>';
   $("tplpill").textContent="No schedule detected";$("tplpill").className="pill";$("xlsx").disabled=true;
+  {const rf=$("rowfilter");if(rf)rf.checked=false;const fw=$("rowfilterwrap");if(fw)fw.style.display="none";}
   $("src").focus();toast("Cleared — ready for another file");
 });
 
