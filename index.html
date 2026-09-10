@@ -573,7 +573,7 @@ $("file").addEventListener("change",e=>{
         const parsed=await readSchedulePDF(rd.result);
         const tsv=pdfRowsToTSV(parsed);
         if(!tsv){ $("checks").innerHTML='<div class="check error"><span class="stamp">Error</span><div class="msg">Couldn\u2019t find a schedule table in that PDF. If it\u2019s a scanned image (not selectable text), it needs converting to Excel first.</div></div>'; return; }
-        $("src").value=tsv; toast("PDF read — hit Check & Format"); runCheck();
+        $("src").value=tsv; toast("PDF read — now hit Check & Format");
       }catch(err){ $("checks").innerHTML='<div class="check error"><span class="stamp">Error</span><div class="msg">That PDF couldn\u2019t be read: '+esc(err.message)+'</div></div>'; }
     };
     rd.readAsArrayBuffer(f); return;
@@ -596,7 +596,7 @@ $("file").addEventListener("change",e=>{
     rd.readAsText(f);
   }
 });
-$("sheet").addEventListener("change",e=>{ if(WORKBOOK){$("src").value=sheetTSV(WORKBOOK.Sheets[e.target.value]);toast('Loaded "'+e.target.value+'"');if(STATE.rows.length)runCheck();} });
+$("sheet").addEventListener("change",e=>{ if(WORKBOOK){$("src").value=sheetTSV(WORKBOOK.Sheets[e.target.value]);toast('Loaded "'+e.target.value+'" — hit Check & Format');} });
 $("src").addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&e.key==="Enter") runCheck(); });
 
 </script>
